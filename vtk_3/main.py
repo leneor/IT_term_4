@@ -4,36 +4,44 @@ import vtk
 import math
 import os
 
+# период колебаний
+T = 1
+# направление вектора угловой скорости
+def omega(t):
+    t = float(t%T)
+    if 4*t >= T and 4*t <= 3*T:
+        return -1
+    else:
+        return 1
 
 # Класс расчётной сетки
 class CalcMesh:
 
-    # Конструктор сетки, полученной из stl-файла
     def __init__(self, nodes_coords, tetrs_points):
         # 3D-сетка из расчётных точек
         # Пройдём по узлам в модели gmsh и заберём из них координаты
         self.nodes = np.array([nodes_coords[0::3], nodes_coords[1::3], nodes_coords[2::3]])
 
         # Модельная скалярная величина распределена как-то вот так
-        self.smth = np.power(self.nodes[0, :], 3) + np.power(self.nodes[1, :], 2)
+        self.smth = np.power(self.nodes[1, :], 2)
 
-        # Тут может быть скорость, но сейчас здесь нули
+        # Скорость точек
         self.velocity = np.zeros(shape=(3, int(len(nodes_coords) / 3)), dtype=np.double)
-        self.velocity[1] = -4 * self.nodes[2] - 80
-        self.velocity[2] = 5 * self.nodes[1]
-
-        self.velocity2 = np.zeros(shape=(3, int(len(nodes_coords) / 3)), dtype=np.double)
-        self.velocity2[2] = 4 * self.nodes[0] / math.pi**2
-        self.velocity2[1] = -5 * self.nodes[2] + 30
+        self.velocity[2] = 0.1 * self.nodes[1]
+        self.velocity[1] = -0.1 * self.nodes[2]
 
         # Пройдём по элементам в модели gmsh
         self.tetrs = np.array([tetrs_points[0::4], tetrs_points[1::4], tetrs_points[2::4], tetrs_points[3::4]])
         self.tetrs -= 1
 
     # Метод отвечает за выполнение для всей сетки шага по времени величиной tau
-    def move(self, tau):
+    def move(self, tau, t):
         # По сути метод просто двигает все точки c их текущими скоростями
-        self.nodes += self.velocity * tau
+        if omega(t) > 0:
+            self.nodes += self.velocity * tau
+        else:
+            self.nodes -= self.velocity * tau
+
 
     # Метод отвечает за запись текущего состояния сетки в снапшот в формате VTK
     def snapshot(self, snap_number):
@@ -155,9 +163,9 @@ assert (len(tetrsNodesTags) % 4 == 0)
 
 mesh = CalcMesh(nodesCoord, tetrsNodesTags)
 mesh.snapshot(0)
-tau = 0.01
-for i in range(1, 100):
-    mesh.move(tau)
+tau = 0.1
+for i in range(1, 20):
+    mesh.move(tau, tau*i)
     mesh.snapshot(i)
 
 
